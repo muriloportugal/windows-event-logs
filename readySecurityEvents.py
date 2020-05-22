@@ -66,10 +66,10 @@ def get_events(log_file, **kwargs):
   event_code = kwargs.get('event_code')
   record_number = kwargs.get('record_number')
   time_written = kwargs.get('time_written')
-  
+
   # Win32_NTLogEvent parameters https://docs.microsoft.com/en-us/previous-versions/windows/desktop/eventlogprov/win32-ntlogevent
   wmi_query = "SELECT * FROM Win32_NTLogEvent WHERE Logfile='{0}'".format(log_file)
-  
+
   if event_code is not None:
     if(isinstance(event_code, list)):
       for index, code in enumerate(event_code):
@@ -81,13 +81,13 @@ def get_events(log_file, **kwargs):
       wmi_query += " ) "
     else:
       wmi_query += " AND EventCode="+str(event_code)
-  
+
   #if record_number is not None:
     # wmi_query += " AND RecordNumber>"+str(record_number)
-  
+
   if time_written != "000000000000.000000-000":
     wmi_query += " AND TimeWritten>'{0}'".format(time_written)
-  
+
   print(wmi_query)
 
   wmi_query_results = ''
@@ -95,12 +95,12 @@ def get_events(log_file, **kwargs):
     # Initialize WMI object
     print(machine_address + ' ' + user_name + ' ' + password)
     wmi_obj = wmi.WMI(machine_address, user=user_name, password=password)
-    
+
     # Query WMI object.
     events_log = wmi_obj.query(wmi_query)
 
     for event in events_log:
-  #  print(unicode(result.ComputerName)) # python 2.7 
+  #  print(unicode(result.ComputerName)) # python 2.7
     #print(event.InsertionStrings) # python 3.0
       teste = InsertionStrings(event.InsertionStrings[0], #req_sid
                               event.InsertionStrings[1],  #req_acc_name
@@ -126,7 +126,7 @@ def monitor_events(**kwargs):
   try:
     # Initialize WMI object
     wmi_obj = wmi.WMI(machine_address, user=user_name, password=password)
-    
+
     # Monitoring.
     watcher = wmi_obj.Win32_NTLogEvent.watch_for("creation",2,EventCode=4624)
     while True:
@@ -138,7 +138,7 @@ def monitor_events(**kwargs):
         print(new_log)
 
   except Exception as e:
-    print(e)  
+    print(e)
 
 def main():
   #initiate the time variables
@@ -201,7 +201,7 @@ def main():
                         time_written=event_time)
   else:
     print("mode {0} is not accepted".format(mode))
-  
+
 
 
 if __name__ == '__main__':

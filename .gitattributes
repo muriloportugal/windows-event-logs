@@ -1,0 +1,12 @@
+# Diz para o git usar o padrão de final de linha do linux mesmo que esteja
+# no windows (menos para arquivos batch do windows que precisam do CRLF)
+
+# seta todos os arquivos de textos
+* text=auto eol=lf
+
+# somente javascript e typescript
+#*.ts text eol=lf
+#*.js text eol=lf
+
+*.{cmd,[cC][mM][dD]} text eol=crlf
+*.{bat,[bB][aA][tT]} text eol=crlf
