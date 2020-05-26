@@ -8,7 +8,7 @@
 # Ex: If you pass log_file='Security', the script will search for all eventlogs registered at Security log.
 
 # event_code could be None, one single value or a listof values.
-# Most common are:
+# Most common is:
 #   4624 successful logon,
 #   4625 failed logon,
 #   4634 Logoff
@@ -93,7 +93,6 @@ def get_events(log_file, **kwargs):
   wmi_query_results = ''
   try:
     # Initialize WMI object
-    print(machine_address + ' ' + user_name + ' ' + password)
     wmi_obj = wmi.WMI(machine_address, user=user_name, password=password)
 
     # Query WMI object.
@@ -122,13 +121,17 @@ def monitor_events(**kwargs):
   machine_address = kwargs.get('machine_address')
   user_name = kwargs.get('user_name')
   password = kwargs.get('password')
+  event_code = kwargs.get('event_code')
+
+  if event_code is None:
+    event_code = 4625 #failed logon
 
   try:
     # Initialize WMI object
     wmi_obj = wmi.WMI(machine_address, user=user_name, password=password)
 
     # Monitoring.
-    watcher = wmi_obj.Win32_NTLogEvent.watch_for("creation",2,EventCode=4624)
+    watcher = wmi_obj.Win32_NTLogEvent.watch_for("creation",2,EventCode=event_code)
     while True:
       try:
         new_log = watcher(timeout_ms=10)
@@ -155,42 +158,55 @@ def main():
   text_date = "Enter the date of event (format dd/mm/YYYY): "
   text_time = "Enter the time of event (format hh:mm:ss): "
   text_mode = "Choose mode (1 - Monitoring new logs or 2 - Search old logs): "
-
+  text_event_code = ("Enter the event code, most common is:"
+                    "\n4624 - 'successful logon',"
+                    "\n4625 - 'failed logon',(Default)"
+                    "\n4634 - 'logoff',"
+                    "\n4663 - 'file Deleted'. ")
   if sys.version_info.major == 2:
     print('python2')
     remote = raw_input(text_remote)
     user = raw_input(text_user)
     pwd = getpass.getpass(prompt=text_pwd)
-    date = raw_input(text_date)
-    if len(date) > 0:
-      day, month, year = date.split('/')
-      time = raw_input(text_time)
-      if len(time) > 0:
-        hour, minute, seconds = time.split(':')
-        hour_utc = int(hour)+3
-    event_time = year+month+day+str(hour_utc).rjust(2,'0')+minute+seconds+".000000-000"
+    event_code = raw_input(text_event_code)
     mode = raw_input(text_mode)
+    if mode == 1:
+      print('teste')
+    elif mode == 2:
+      date = raw_input(text_date)
+      if len(date) > 0:
+        day, month, year = date.split('/')
+        time = raw_input(text_time)
+        if len(time) > 0:
+          hour, minute, seconds = time.split(':')
+          hour_utc = int(hour)+3
+      event_time = year+month+day+str(hour_utc).rjust(2,'0')+minute+seconds+".000000-000"
 
   elif sys.version_info.major == 3:
     print('python3')
     remote = input(text_remote)
     user = input(text_user)
     pwd = getpass.getpass(prompt=text_pwd)
-    date = input(text_date)
-    if len(date) > 0:
-      day, month, year = date.split('/')
-      time = input(text_time)
-      if len(time) > 0:
-        hour, minute, seconds = time.split(':')
-        hour_utc = int(hour)+3
-    event_time = year+month+day+str(hour_utc).rjust(2,'0')+minute+seconds+".000000-000"
+    event_code = input(text_event_code)
     mode = input(text_mode)
+    if mode == 1:
+      print('teste')
+    elif mode == 2:
+      date = input(text_date)
+      if len(date) > 0:
+        day, month, year = date.split('/')
+        time = input(text_time)
+        if len(time) > 0:
+          hour, minute, seconds = time.split(':')
+          hour_utc = int(hour)+3
+      event_time = year+month+day+str(hour_utc).rjust(2,'0')+minute+seconds+".000000-000"
 
   #events = get_events("Security", machine_address=remote, user_name=user, password=pwd, event_code=4658,record_number=617206620)
   if mode == "1":
     events = monitor_events(machine_address=remote,
                             user_name=user,
-                            password=pwd)
+                            password=pwd,
+                            event_code=event_code)
   elif mode == "2":
     events = get_events("Security",
                         machine_address=remote,
