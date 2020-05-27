@@ -21,6 +21,8 @@
 import wmi
 import sys
 import getpass
+from pprint import pprint
+import time
 
 ## Class for each log object
 class InsertionStrings:
@@ -37,7 +39,7 @@ class InsertionStrings:
     self.netw_port = netw_port
 
   def __repr__(self):
-    return ("\nInsertionStrings {{"
+    return ("\n{{"
             "\n  Security ID: {0}"
             "\n  Account Name: {1}"
             "\n  Account Domain: {2}"
@@ -59,12 +61,36 @@ class InsertionStrings:
                         self.netw_address_origin,
                         self.netw_port)
 
+class events_Win32_NTLogEvent:
+  event_type_description = {
+    1: "1 - Error",
+    2: "2 - Warning",
+    4: "4 - Information",
+    8: "8 - Security Audit Success",
+    16: "16 - Security Audit Failure",
+  }
+
+  event_code_description = {
+    4624: "4624 - successful logon",
+    4625: "4625 - failed logon",
+    4634: "4634 - Logoff",
+    4663: "4663 - File Deleted"
+  }
+
+  def __init__(self, computer_name, event_code, event_type, insertion_strings, log_file, record_number, time_written):
+    self.computer_name = computer_name
+    self.event_code = self.event_code_description[event_code] if (event_code in self.event_code_description) else event_code
+    self.event_type = self.event_type_description[event_type] if (event_type in self.event_type_description) else event_type
+    self.insertion_strings = insertion_strings
+    self.log_file = log_file
+    self.record_number = record_number
+    self.time_written = time_written
+
 def get_events(log_file, **kwargs):
   machine_address = kwargs.get('machine_address')
   user_name = kwargs.get('user_name')
   password = kwargs.get('password')
   event_code = kwargs.get('event_code')
-  record_number = kwargs.get('record_number')
   time_written = kwargs.get('time_written')
 
   # Win32_NTLogEvent parameters https://docs.microsoft.com/en-us/previous-versions/windows/desktop/eventlogprov/win32-ntlogevent
@@ -101,7 +127,7 @@ def get_events(log_file, **kwargs):
     for event in events_log:
   #  print(unicode(result.ComputerName)) # python 2.7
     #print(event.InsertionStrings) # python 3.0
-      teste = InsertionStrings(event.InsertionStrings[0], #req_sid
+      insertion_string = InsertionStrings(event.InsertionStrings[0], #req_sid
                               event.InsertionStrings[1],  #req_acc_name
                               event.InsertionStrings[2],  #req_domain
                               event.InsertionStrings[8],  #logon_type
@@ -111,11 +137,18 @@ def get_events(log_file, **kwargs):
                               event.InsertionStrings[11],   #netw_station_name
                               event.InsertionStrings[18],   #netw_address_origin
                               event.InsertionStrings[19])  #netw_port
-      print(teste)
+      teste = events_Win32_NTLogEvent(event.ComputerName,
+                                      event.EventCode,
+                                      event.EventType,
+                                      insertion_string,
+                                      event.Logfile,
+                                      event.RecordNumber,
+                                      event.TimeWritten)
+      pprint(vars(teste))
+      #print(event)
 
   except Exception as e:
     print(e)
-
 
 def monitor_events(**kwargs):
   machine_address = kwargs.get('machine_address')
@@ -123,8 +156,6 @@ def monitor_events(**kwargs):
   password = kwargs.get('password')
   event_code = kwargs.get('event_code')
 
-  if event_code is None:
-    event_code = 4625 #failed logon
 
   try:
     # Initialize WMI object
@@ -151,6 +182,9 @@ def main():
   hour_utc = '00'
   minute = '00'
   seconds = '00'
+  # Get the system timezone considering daylight saving DST.
+  offset = time.timezone if (time.localtime().tm_isdst == 0) else time.altzone
+  system_timezone = offset / -(60*60)
 
   text_remote = "Enter remote computer name (No need for local machine): "
   text_user = "Enter with user name (Ex: domain\\user) (No need for local machine): "
@@ -160,9 +194,11 @@ def main():
   text_mode = "Choose mode (1 - Monitoring new logs or 2 - Search old logs): "
   text_event_code = ("Enter the event code, most common is:"
                     "\n4624 - 'successful logon',"
-                    "\n4625 - 'failed logon',(Default)"
+                    "\n4625 - 'failed logon'(Default),"
                     "\n4634 - 'logoff',"
-                    "\n4663 - 'file Deleted'. ")
+                    "\n4663 - 'file Deleted'."
+                    "\nSeparate each value with comma for multiple select: ")
+
   if sys.version_info.major == 2:
     print('python2')
     remote = raw_input(text_remote)
@@ -170,16 +206,16 @@ def main():
     pwd = getpass.getpass(prompt=text_pwd)
     event_code = raw_input(text_event_code)
     mode = raw_input(text_mode)
-    if mode == 1:
+    if mode == "1":
       print('teste')
-    elif mode == 2:
+    elif mode == "2":
       date = raw_input(text_date)
       if len(date) > 0:
         day, month, year = date.split('/')
-        time = raw_input(text_time)
-        if len(time) > 0:
-          hour, minute, seconds = time.split(':')
-          hour_utc = int(hour)+3
+        event_time = raw_input(text_time)
+        if len(event_time) > 0:
+          hour, minute, seconds = event_time.split(':')
+          hour_utc = int(hour)-system_timezone #convert to UTC time
       event_time = year+month+day+str(hour_utc).rjust(2,'0')+minute+seconds+".000000-000"
 
   elif sys.version_info.major == 3:
@@ -189,19 +225,23 @@ def main():
     pwd = getpass.getpass(prompt=text_pwd)
     event_code = input(text_event_code)
     mode = input(text_mode)
-    if mode == 1:
+    if mode == "1":
       print('teste')
-    elif mode == 2:
+    elif mode == "2":
       date = input(text_date)
       if len(date) > 0:
         day, month, year = date.split('/')
-        time = input(text_time)
-        if len(time) > 0:
-          hour, minute, seconds = time.split(':')
-          hour_utc = int(hour)+3
+        event_time = input(text_time)
+        if len(event_time) > 0:
+          hour, minute, seconds = event_time.split(':')
+          hour_utc = (int(hour)-int(system_timezone))#convert to UTC time
       event_time = year+month+day+str(hour_utc).rjust(2,'0')+minute+seconds+".000000-000"
 
-  #events = get_events("Security", machine_address=remote, user_name=user, password=pwd, event_code=4658,record_number=617206620)
+
+  if event_code is None:
+    event_code = 4625 #failed logon
+  event_code_list = event_code.split(',')
+
   if mode == "1":
     events = monitor_events(machine_address=remote,
                             user_name=user,
@@ -212,12 +252,10 @@ def main():
                         machine_address=remote,
                         user_name=user,
                         password=pwd,
-                        event_code=4624,
-                        record_number=153332318,
+                        event_code=event_code_list,
                         time_written=event_time)
   else:
     print("mode {0} is not accepted".format(mode))
-
 
 
 if __name__ == '__main__':
