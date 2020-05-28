@@ -22,15 +22,29 @@ import wmi
 import sys
 import getpass
 from pprint import pprint
+from datetime import datetime
 import time
 
 ## Class for each log object
 class InsertionStrings:
+
+  __logon_type_description = {
+    '2':	"2 - Interactive (Authentication performed normally, user/password entered at system screen by keyboard.)",
+    '3':	"3 - Network (A user or computer connected to this computer over the local network, like shared folder or printer)",
+    '4':	"4 - Batch (Scheduled task)",
+    '5':	"5 - Service (Service startup)",
+    '7':	"7 - Unlock (Computer was previously locked and now was unlocked Ctrl+Alt+Del)",
+    '8':	"8 - NetworkCleartext (This logon type indicates a network logon like logon type 3 but where the password was sent over the network in the clear text)",
+    '9':	"9 - NewCredentials (If you use the RunAs command to start a program under a different user account)",
+    '10': "10 - RemoteInteractive (Terminal Services, Remote Desktop or Remote Assistance)",
+    '11': "11 - CachedInteractive (If your computer is part of a domain, windows cached the credentials in case you attempt to logon when you are not connected to the organization’s network)",
+  }
+
   def __init__ (self, req_sid, req_acc_name, req_domain, logon_type, logon_acc_name, logon_domain, proc_info_name, netw_station_name, netw_address_origin, netw_port):
     self.req_sid = req_sid
     self.req_acc_name =  req_acc_name
     self.req_domain = req_domain
-    self.logon_type = logon_type
+    self.logon_type = self.__logon_type_description[logon_type] if (logon_type in self.__logon_type_description) else logon_type
     self.logon_acc_name = logon_acc_name
     self.logon_domain = logon_domain
     self.proc_info_name = proc_info_name
@@ -62,7 +76,7 @@ class InsertionStrings:
                         self.netw_port)
 
 class events_Win32_NTLogEvent:
-  event_type_description = {
+  __event_type_description = {
     1: "1 - Error",
     2: "2 - Warning",
     4: "4 - Information",
@@ -70,7 +84,7 @@ class events_Win32_NTLogEvent:
     16: "16 - Security Audit Failure",
   }
 
-  event_code_description = {
+  __event_code_description = {
     4624: "4624 - successful logon",
     4625: "4625 - failed logon",
     4634: "4634 - Logoff",
@@ -79,8 +93,8 @@ class events_Win32_NTLogEvent:
 
   def __init__(self, computer_name, event_code, event_type, insertion_strings, log_file, record_number, time_written):
     self.computer_name = computer_name
-    self.event_code = self.event_code_description[event_code] if (event_code in self.event_code_description) else event_code
-    self.event_type = self.event_type_description[event_type] if (event_type in self.event_type_description) else event_type
+    self.event_code = self.__event_code_description[event_code] if (event_code in self.__event_code_description) else event_code
+    self.event_type = self.__event_type_description[event_type] if (event_type in self.__event_type_description) else event_type
     self.insertion_strings = insertion_strings
     self.log_file = log_file
     self.record_number = record_number
@@ -114,7 +128,7 @@ def get_events(log_file, **kwargs):
   if time_written != "000000000000.000000-000":
     wmi_query += " AND TimeWritten>'{0}'".format(time_written)
 
-  print(wmi_query)
+  print("\n"+wmi_query+"\n")
 
   wmi_query_results = ''
   try:
@@ -127,24 +141,39 @@ def get_events(log_file, **kwargs):
     for event in events_log:
   #  print(unicode(result.ComputerName)) # python 2.7
     #print(event.InsertionStrings) # python 3.0
-      insertion_string = InsertionStrings(event.InsertionStrings[0], #req_sid
-                              event.InsertionStrings[1],  #req_acc_name
-                              event.InsertionStrings[2],  #req_domain
-                              event.InsertionStrings[8],  #logon_type
-                              event.InsertionStrings[5],  #logon_acc_name
-                              event.InsertionStrings[6],   #logon_domain
-                              event.InsertionStrings[17],   #proc_info_name
-                              event.InsertionStrings[11],   #netw_station_name
-                              event.InsertionStrings[18],   #netw_address_origin
-                              event.InsertionStrings[19])  #netw_port
-      teste = events_Win32_NTLogEvent(event.ComputerName,
-                                      event.EventCode,
-                                      event.EventType,
-                                      insertion_string,
-                                      event.Logfile,
-                                      event.RecordNumber,
-                                      event.TimeWritten)
-      pprint(vars(teste))
+      insertion_string = None
+      if event.EventCode == 4624:
+        insertion_string = InsertionStrings(event.InsertionStrings[0], #req_sid
+                                            event.InsertionStrings[1],  #req_acc_name
+                                            event.InsertionStrings[2],  #req_domain
+                                            event.InsertionStrings[8],  #logon_type
+                                            event.InsertionStrings[5],  #logon_acc_name
+                                            event.InsertionStrings[6],   #logon_domain
+                                            event.InsertionStrings[17],   #proc_info_name
+                                            event.InsertionStrings[11],   #netw_station_name
+                                            event.InsertionStrings[18],   #netw_address_origin
+                                            event.InsertionStrings[19])  #netw_port
+      elif event.EventCode == 4625:
+        insertion_string = InsertionStrings(event.InsertionStrings[0], #req_sid
+                                            event.InsertionStrings[1],  #req_acc_name
+                                            event.InsertionStrings[2],  #req_domain
+                                            event.InsertionStrings[10],  #logon_type
+                                            event.InsertionStrings[5],  #logon_acc_name
+                                            event.InsertionStrings[6],   #logon_domain
+                                            event.InsertionStrings[18],   #proc_info_name
+                                            event.InsertionStrings[13],   #netw_station_name
+                                            event.InsertionStrings[19],   #netw_address_origin
+                                            event.InsertionStrings[20])  #netw_port
+
+      event_build = events_Win32_NTLogEvent(event.ComputerName,
+                                            event.EventCode,
+                                            event.EventType,
+                                            insertion_string if (insertion_string is not None) else event.InsertionStrings,
+                                            event.Logfile,
+                                            event.RecordNumber,
+                                            event.TimeWritten)
+      pprint(vars(event_build))
+      print("\n")
       #print(event)
 
   except Exception as e:
@@ -175,13 +204,15 @@ def monitor_events(**kwargs):
     print(e)
 
 def main():
-  #initiate the time variables
-  day = '00'
-  month = '00'
-  year = '00'
-  hour_utc = '00'
-  minute = '00'
-  seconds = '00'
+  #initiate the date and time variables with current date time
+  today = datetime.today()
+  day = str(today.day).rjust(2,"0")
+  month = str(today.month).rjust(2,"0")
+  year = str(today.year)
+  hour_utc = "00"
+  hour = str(today.hour).rjust(2,"0")
+  minute = "00"
+  seconds = "00"
   # Get the system timezone considering daylight saving DST.
   offset = time.timezone if (time.localtime().tm_isdst == 0) else time.altzone
   system_timezone = offset / -(60*60)
@@ -189,8 +220,8 @@ def main():
   text_remote = "Enter remote computer name (No need for local machine): "
   text_user = "Enter with user name (Ex: domain\\user) (No need for local machine): "
   text_pwd  = "Enter password (No need for local machine): "
-  text_date = "Enter the date of event (format dd/mm/YYYY): "
-  text_time = "Enter the time of event (format hh:mm:ss): "
+  text_date = "Enter the date of event (format dd/mm/YYYY, default current date {0}/{1}/{2}): ".format(day,month,year)
+  text_time = "Enter the time of event (format hh:mm:ss, default current hour {0}:00:00): ".format(hour)
   text_mode = "Choose mode (1 - Monitoring new logs or 2 - Search old logs): "
   text_event_code = ("Enter the event code, most common is:"
                     "\n4624 - 'successful logon',"
@@ -212,10 +243,10 @@ def main():
       date = raw_input(text_date)
       if len(date) > 0:
         day, month, year = date.split('/')
-        event_time = raw_input(text_time)
-        if len(event_time) > 0:
-          hour, minute, seconds = event_time.split(':')
-          hour_utc = int(hour)-system_timezone #convert to UTC time
+      event_time = raw_input(text_time)
+      if len(event_time) > 0:
+        hour, minute, seconds = event_time.split(':')
+      hour_utc = int(hour)-int(system_timezone) #convert to UTC time
       event_time = year+month+day+str(hour_utc).rjust(2,'0')+minute+seconds+".000000-000"
 
   elif sys.version_info.major == 3:
@@ -231,15 +262,14 @@ def main():
       date = input(text_date)
       if len(date) > 0:
         day, month, year = date.split('/')
-        event_time = input(text_time)
-        if len(event_time) > 0:
-          hour, minute, seconds = event_time.split(':')
-          hour_utc = (int(hour)-int(system_timezone))#convert to UTC time
+      event_time = input(text_time)
+      if len(event_time) > 0:
+        hour, minute, seconds = event_time.split(':')
+      hour_utc = int(hour)-int(system_timezone)#convert to UTC time
       event_time = year+month+day+str(hour_utc).rjust(2,'0')+minute+seconds+".000000-000"
 
-
-  if event_code is None:
-    event_code = 4625 #failed logon
+  if len(event_code) <= 0:
+    event_code = "4625" #failed logon
   event_code_list = event_code.split(',')
 
   if mode == "1":
