@@ -40,17 +40,17 @@ class InsertionStrings:
     '11': "11 - CachedInteractive (If your computer is part of a domain, windows cached the credentials in case you attempt to logon when you are not connected to the organization’s network)",
   }
 
-  def __init__ (self, req_sid, req_acc_name, req_domain, logon_type, logon_acc_name, logon_domain, proc_info_name, netw_station_name, netw_address_origin, netw_port):
-    self.req_sid = req_sid
-    self.req_acc_name =  req_acc_name
-    self.req_domain = req_domain
+  def __init__ (self, subject_security_id, subject_account_name, subject_account_domain, logon_type, logon_account_name, logon_account_domain, process_information_name, network_workstation_name, network_address_origin, network_port):
+    self.subject_security_id = subject_security_id
+    self.subject_account_name =  subject_account_name
+    self.subject_account_domain = subject_account_domain
     self.logon_type = self.__logon_type_description[logon_type] if (logon_type in self.__logon_type_description) else logon_type
-    self.logon_acc_name = logon_acc_name
-    self.logon_domain = logon_domain
-    self.proc_info_name = proc_info_name
-    self.netw_station_name = netw_station_name
-    self.netw_address_origin = netw_address_origin
-    self.netw_port = netw_port
+    self.logon_account_name = logon_account_name
+    self.logon_account_domain = logon_account_domain
+    self.process_information_name = process_information_name
+    self.network_workstation_name = network_workstation_name
+    self.network_address_origin = network_address_origin
+    self.network_port = network_port
 
   def __repr__(self):
     return ("\n{{"
@@ -64,16 +64,16 @@ class InsertionStrings:
             "\n  Source Workstation Name: {7}"
             "\n  Source Network Address: {8}"
             "\n  Source Port: {9}"
-            "\n}}").format(self.req_sid,
-                        self.req_acc_name,
-                        self.req_domain,
+            "\n}}").format(self.subject_security_id,
+                        self.subject_account_name,
+                        self.subject_account_domain,
                         self.logon_type,
-                        self.logon_acc_name,
-                        self.logon_domain,
-                        self.proc_info_name,
-                        self.netw_station_name,
-                        self.netw_address_origin,
-                        self.netw_port)
+                        self.logon_account_name,
+                        self.logon_account_domain,
+                        self.process_information_name,
+                        self.network_workstation_name,
+                        self.network_address_origin,
+                        self.network_port)
 
 class events_Win32_NTLogEvent:
   __event_type_description = {
@@ -164,6 +164,18 @@ def get_events(log_file, **kwargs):
                                             event.InsertionStrings[13],   #netw_station_name
                                             event.InsertionStrings[19],   #netw_address_origin
                                             event.InsertionStrings[20])  #netw_port
+      elif event.EventCode == 4634:
+        insertion_string = InsertionStrings(event.InsertionStrings[0], #req_sid
+                                            None,  #req_acc_name
+                                            None,  #req_domain
+                                            event.InsertionStrings[4],  #logon_type
+                                            event.InsertionStrings[1],  #logon_acc_name
+                                            event.InsertionStrings[2],   #logon_domain
+                                            None,   #proc_info_name
+                                            None,   #netw_station_name
+                                            None,   #netw_address_origin
+                                            None)  #netw_port
+
 
       event_build = events_Win32_NTLogEvent(event.ComputerName,
                                             event.EventCode,
@@ -172,7 +184,7 @@ def get_events(log_file, **kwargs):
                                             event.Logfile,
                                             event.RecordNumber,
                                             event.TimeWritten)
-      pprint(vars(event_build))
+      pprint(event_build.insertion_strings.logon_type)
       print("\n")
       #print(event)
 
